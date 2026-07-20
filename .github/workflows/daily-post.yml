@@ -2,8 +2,8 @@ name: Daily hack post
 
 on:
   schedule:
-    # 09:30 IST = 04:00 UTC. Adjust to your audience's peak.
-    - cron: "0 4 * * *"
+    # 13:00 IST = 07:30 UTC. Adjust to your audience's peak.
+    - cron: "30 7 * * *"
   workflow_dispatch: {}   # lets you trigger manually to test
 
 permissions:
