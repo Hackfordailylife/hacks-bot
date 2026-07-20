@@ -12,30 +12,36 @@ Two-step flow with the container-processing wait that Meta's docs bury:
 
 Env: IG_USER_ID, IG_ACCESS_TOKEN (long-lived), and for image posts IMAGE_URL
 """
-import os, json, time, urllib.request, urllib.parse
+import os, json, time, urllib.request, urllib.parse, urllib.error
 
 IG_USER = os.environ["IG_USER_ID"]
 TOKEN   = os.environ["IG_ACCESS_TOKEN"]
 GRAPH   = "https://graph.instagram.com/v21.0"
 
+def _read(resp):
+    return json.load(resp)
+
 def _get(url):
-    with urllib.request.urlopen(url, timeout=60) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(url, timeout=60) as r:
+            return _read(r)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        raise RuntimeError(f"GET failed ({e.code}): {body}")
 
 def _post(path, params):
     data = urllib.parse.urlencode(params).encode()
-    with urllib.request.urlopen(urllib.request.Request(
-            f"{GRAPH}/{path}", data=data, method="POST"), timeout=60) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(urllib.request.Request(
+                f"{GRAPH}/{path}", data=data, method="POST"), timeout=60) as r:
+            return _read(r)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        raise RuntimeError(f"POST {path} failed ({e.code}): {body}")
 
 def create_container(post):
     params = {"caption": post["caption"], "access_token": TOKEN}
-    if post["format"] == "image":
-        params["image_url"] = os.environ["IMAGE_URL"]
-    else:
-        # text-only isn't supported as a feed post; IG feed requires media.
-        # Fallback: render the text as a card too. Handled upstream by workflow.
-        params["image_url"] = os.environ["IMAGE_URL"]
+    params["image_url"] = os.environ["IMAGE_URL"]
     res = _post(f"{IG_USER}/media", params)
     if "id" not in res:
         raise RuntimeError(f"container failed: {res}")
@@ -55,13 +61,4 @@ def wait_finished(container_id, tries=20):
 
 def main():
     post = json.load(open("post.json"))
-    cid = create_container(post)
-    wait_finished(cid)
-    res = _post(f"{IG_USER}/media_publish",
-                {"creation_id": cid, "access_token": TOKEN})
-    if "id" not in res:
-        raise RuntimeError(f"publish failed: {res}")
-    print(f"PUBLISHED media id {res['id']}")
-
-if __name__ == "__main__":
-    main()
+    cid =
