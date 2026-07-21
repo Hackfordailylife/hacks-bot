@@ -40,12 +40,6 @@ jobs:
           git push
           echo "IMAGE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}/published/${STAMP}.png" >> $GITHUB_ENV
 
-      - name: Ask for approval on Telegram
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python scripts/approve.py
-
       - name: Publish to Instagram
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
