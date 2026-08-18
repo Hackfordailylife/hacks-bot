@@ -7,7 +7,7 @@ on:
   workflow_dispatch: {}   # lets you trigger manually to test
 
 permissions:
-  contents: write   # needed to commit the card + state counter
+  contents: write   # needed to commit the slides + state counter
 
 jobs:
   post:
@@ -22,27 +22,36 @@ jobs:
       - name: Install deps
         run: pip install pillow
 
-      - name: Pick today's hack from the bank
+      - name: Pick today's carousel from the bank
         run: python scripts/pick.py
 
-      - name: Render card
+      - name: Render slides
         run: cp scripts/make_card.py . && python scripts/render.py
 
-      - name: Commit card + state for public URL and next-day counter
+      - name: Commit slides + state, build SLIDE_URLS
         run: |
           mkdir -p published
           STAMP=$(date +%Y%m%d)
-          cp card.png "published/${STAMP}.png"
           git config user.name "hacks-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add "published/${STAMP}.png" state.json
+          urls=""
+          for i in $(ls slide_*.png | sort -V); do
+            idx="${i#slide_}"; idx="${idx%.png}"
+            dest="published/${STAMP}_${idx}.png"
+            cp "$i" "$dest"
+            git add "$dest"
+            url="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}/${dest}"
+            if [ -z "$urls" ]; then urls="$url"; else urls="$urls,$url"; fi
+          done
+          git add state.json
           git commit -m "post ${STAMP}" || echo "nothing to commit"
           git push
-          echo "IMAGE_URL=https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_REF_NAME}/published/${STAMP}.png" >> $GITHUB_ENV
+          sleep 10   # let raw.githubusercontent.com catch up before IG fetches
+          echo "SLIDE_URLS=${urls}" >> $GITHUB_ENV
 
       - name: Publish to Instagram
         env:
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
-          IMAGE_URL: ${{ env.IMAGE_URL }}
+          SLIDE_URLS: ${{ env.SLIDE_URLS }}
         run: python scripts/publish.py
