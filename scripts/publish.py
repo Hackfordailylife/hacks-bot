@@ -41,13 +41,29 @@ def wait_finished(container_id, tries=20):
         time.sleep(5)
     raise TimeoutError("container never reached FINISHED")
 
+def publish(cid, tries=3):
+    for attempt in range(1, tries + 1):
+        try:
+            res = _post(f"{IG_USER}/media_publish",
+                        {"creation_id": cid, "access_token": TOKEN})
+            if "id" in res:
+                return res
+            raise RuntimeError(f"publish failed: {res}")
+        except RuntimeError as e:
+            # 9007 = media not ready; retry after a short wait
+            if "9007" in str(e) and attempt < tries:
+                print(f"publish not ready (attempt {attempt}), retrying in 10s...")
+                time.sleep(10)
+                continue
+            raise
+    raise RuntimeError("publish failed after retries")
+
 def main():
     post = json.load(open("post.json"))
     cid = create_container(post)
     wait_finished(cid)
-    res = _post(f"{IG_USER}/media_publish", {"creation_id": cid, "access_token": TOKEN})
-    if "id" not in res:
-        raise RuntimeError(f"publish failed: {res}")
+    time.sleep(2)  # settle buffer after FINISHED before publishing
+    res = publish(cid)
     print(f"PUBLISHED media id {res['id']}")
 
 if __name__ == "__main__":
