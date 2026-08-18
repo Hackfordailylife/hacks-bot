@@ -1,0 +1,30 @@
+name: Refresh IG token
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"   # 03:00 UTC on the 1st of every month
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh the token
+        id: refresh
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: python scripts/refresh_token.py
+
+      - name: Store the new token as a secret
+        env:
+          GH_TOKEN: ${{ secrets.PAT_SECRETS }}
+        run: |
+          gh secret set IG_ACCESS_TOKEN \
+            --body "${{ steps.refresh.outputs.new_token }}" \
+            --repo "${GITHUB_REPOSITORY}"
